@@ -25,7 +25,7 @@ const int mqtt_port = 1883;
 // ===== TOPIK MQTT =====
 // GANTI "nama-kelompok/nama" dengan nama kelompok dan nama Anda
 const char* topic_publish = "sic/dibimbing/AKUCINTADTETI/heiho/pub/dht";
-const char* topic_subscribe = "sic/dibimbing/AKUCINTADTETI/heiho/sub/led";
+// const char* topic_subscribe = "sic/dibimbing/AKUCINTADTETI/heiho/sub/led";  // LED belum terpasang
 
 // ===== KONFIGURASI DHT11 =====
 #define DHTPIN 4           // Pin data DHT11 (GPIO4 untuk ESP32, pin 4 untuk Arduino)
@@ -33,7 +33,7 @@ const char* topic_subscribe = "sic/dibimbing/AKUCINTADTETI/heiho/sub/led";
 DHT dht(DHTPIN, DHTTYPE);
 
 // ===== KONFIGURASI LED =====
-#define LED_PIN 2          // Pin LED (GPIO2 untuk ESP32, pin 2 untuk Arduino)
+// #define LED_PIN 2          // Pin LED (GPIO2 untuk ESP32, pin 2 untuk Arduino) - LED belum terpasang
 
 // ===== OBJEK WIFI DAN MQTT =====
 WiFiClient wifiClient;
@@ -70,6 +70,8 @@ void setup_wifi() {
 }
 
 // ===== CALLBACK MQTT (Menerima Pesan) =====
+// Fungsi callback untuk LED - saat ini di-comment karena LED belum terpasang
+/*
 void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("Pesan diterima pada topik: ");
   Serial.println(topic);
@@ -95,6 +97,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
     }
   }
 }
+*/
 
 // ===== FUNGSI RECONNECT MQTT =====
 void reconnect() {
@@ -110,10 +113,10 @@ void reconnect() {
     if (client.connect(clientId.c_str())) {
       Serial.println("Terhubung!");
       
-      // Subscribe ke topik LED
-      client.subscribe(topic_subscribe);
-      Serial.print("Subscribe ke topik: ");
-      Serial.println(topic_subscribe);
+      // Subscribe ke topik LED - di-comment karena LED belum terpasang
+      // client.subscribe(topic_subscribe);
+      // Serial.print("Subscribe ke topik: ");
+      // Serial.println(topic_subscribe);
     } 
     else {
       Serial.print("Gagal, rc=");
@@ -129,9 +132,9 @@ void setup() {
   // Inisialisasi Serial Monitor
   Serial.begin(115200);
   
-  // Inisialisasi pin LED
-  pinMode(LED_PIN, OUTPUT);
-  digitalWrite(LED_PIN, LOW);
+  // Inisialisasi pin LED - di-comment karena LED belum terpasang
+  // pinMode(LED_PIN, OUTPUT);
+  // digitalWrite(LED_PIN, LOW);
   
   // Inisialisasi DHT11
   dht.begin();
@@ -141,7 +144,7 @@ void setup() {
   
   // Setup MQTT
   client.setServer(mqtt_server, mqtt_port);
-  client.setCallback(callback);
+  // client.setCallback(callback);  // Callback LED di-comment karena LED belum terpasang
   
   Serial.println("===== DHT11 & LED Dashboard Ready =====");
 }
