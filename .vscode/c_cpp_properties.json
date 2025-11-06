@@ -1,0 +1,25 @@
+{
+  "configurations": [
+    {
+      "name": "Linux",
+      "includePath": [
+        "${workspaceFolder}/**",
+        "${workspaceFolder}/DHT_sensor_library",
+        "${workspaceFolder}/PubSubClient/src",
+        "${env:HOME}/.arduino15/packages/esp32/hardware/esp32/3.3.0/cores/esp32",
+        "${env:HOME}/.arduino15/packages/esp32/hardware/esp32/3.3.0/variants/esp32",
+        "${env:HOME}/.arduino15/packages/esp32/hardware/esp32/3.3.0/libraries/**",
+        "${env:HOME}/.arduino15/packages/esp32/tools/esp32-arduino-libs/idf-release_v5.5-b66b5448-v1/esp32/include/**",
+        "${env:HOME}/.arduino15/packages/esp32/tools/esp32-arduino-libs/idf-release_v5.5-b66b5448-v1/esp32/qio_qspi/include",
+        "${env:HOME}/.arduino15/packages/esp32/tools/esp32-arduino-libs/idf-release_v5.5-b66b5448-v1/esp32/include/freertos/FreeRTOS-Kernel/portable/xtensa/include"
+      ],
+      "defines": ["ARDUINO=10607", "ARDUINO_ARCH_ESP32", "ESP32"],
+      "compilerPath": "${env:HOME}/.arduino15/packages/esp32/tools/esp-x32/2411/bin/xtensa-esp32-elf-g++",
+      "cStandard": "c11",
+      "cppStandard": "c++11",
+      "intelliSenseMode": "linux-gcc-x64",
+      "forcedInclude": []
+    }
+  ],
+  "version": 4
+}
