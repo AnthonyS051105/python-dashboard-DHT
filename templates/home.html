@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="id">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width,initial-scale=1" />
+        <title>Dashboard DHT11</title>
+        <!-- Simple styling -->
+        <style>
+            :root{--bg:#0f1724;--card:#0b1220;--muted:#9aa4b2;--accent:#22c55e}
+            html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#071025 0%, #0b1220 100%);color:#e6eef6}
+            .container{max-width:1100px;margin:28px auto;padding:20px}
+            header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+            h1{font-size:20px;margin:0}
+            .grid{display:grid;grid-template-columns:1fr 360px;gap:18px}
+            .card{background:rgba(255,255,255,0.03);padding:16px;border-radius:10px;box-shadow:0 6px 18px rgba(2,6,23,0.6)}
+            .row{display:flex;gap:12px;align-items:center}
+            .stat{flex:1}
+            .big{font-size:28px;font-weight:600}
+            .muted{color:var(--muted);font-size:13px}
+            .led-indicator{display:inline-flex;align-items:center;gap:8px}
+            .led-dot{width:14px;height:14px;border-radius:50%;background:#334155;box-shadow:0 0 8px rgba(0,0,0,0.6)}
+            .led-on{background:var(--accent);box-shadow:0 0 10px rgba(34,197,94,0.9)}
+            .buttons{display:flex;gap:8px;margin-top:10px}
+            button{cursor:pointer;padding:8px 12px;border-radius:8px;border:0;background:#0ea5a9;color:#06121a;font-weight:600}
+            button.secondary{background:#334155;color:#e6eef6}
+            canvas{width:100% !important;height:240px !important}
+            @media(max-width:900px){.grid{grid-template-columns:1fr;}.card{padding:14px}}
+        </style>
+        <!-- Chart.js CDN -->
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+        <!-- Socket.IO Client -->
+        <script src="https://cdn.socket.io/4.6.0/socket.io.min.js" integrity="sha384-c79GN5VsunZvi+Q/WObgk2in0CbZsHnjEqvFxC5DxHn9lTfNce2WW6h2pH6u/kF+" crossorigin="anonymous"></script>
+    </head>
+    <body>
+        <div class="container">
+            <header>
+                <h1>Dashboard DHT11 — Suhu & Kelembapan</h1>
+                <div class="muted">Realtime IoT dashboard</div>
+            </header>
+
+            <div class="grid">
+                <div class="card">
+                    <div class="row" style="justify-content:space-between;align-items:flex-start">
+                        <div class="stat">
+                            <div class="muted">Suhu</div>
+                            <div id="temp-value" class="big">-- °C</div>
+                        </div>
+                        <div class="stat">
+                            <div class="muted">Kelembapan</div>
+                            <div id="hum-value" class="big">-- %</div>
+                        </div>
+                    </div>
+
+                    <hr style="margin:14px 0;border-color:rgba(255,255,255,0.04)" />
+
+                    <div>
+                        <canvas id="tempChart"></canvas>
+                    </div>
+
+                    <div style="margin-top:18px">
+                        <canvas id="humChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div style="display:flex;flex-direction:column;gap:12px">
+                        <div>
+                            <div class="muted">Status LED</div>
+                            <div class="row" style="margin-top:8px;align-items:center">
+                                <div class="led-indicator">
+                                    <div id="led-dot" class="led-dot" aria-hidden="true"></div>
+                                    <div id="led-text" class="muted">Unknown</div>
+                                </div>
+                            </div>
+                            <div class="buttons">
+                                <button id="btn-on">Turn LED ON</button>
+                                <button id="btn-off" class="secondary">Turn LED OFF</button>
+                            </div>
+                        </div>
+
+                        <div style="margin-top:10px">
+                            <div class="muted">Last update</div>
+                            <div id="last-update" class="muted">-</div>
+                        </div>
+
+                        <div style="margin-top:12px">
+                            <div class="muted">Log singkat</div>
+                            <pre id="log" style="background:rgba(0,0,0,0.15);padding:10px;border-radius:6px;max-height:220px;overflow:auto;margin:8px 0 0 0;font-size:13px">No activity yet.</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            // Initialize Socket.IO connection
+            const socket = io();
+
+            socket.on('connect', function() {
+                appendLog('✓ Terhubung ke server via WebSocket');
+            });
+
+            socket.on('disconnect', function() {
+                appendLog('✗ Terputus dari server');
+            });
+
+            // Listen for sensor updates from MQTT
+            socket.on('sensor_update', function(data) {
+                updateUI(data);
+                appendLog(`📊 Data sensor: ${data.temperature}°C, ${data.humidity}%`);
+            });
+
+            // Listen for LED status updates
+            socket.on('led_update', function(data) {
+                updateLED(data.led);
+                appendLog(`💡 LED status: ${data.led ? 'ON' : 'OFF'}`);
+            });
+
+            // Small helper to append log
+            function appendLog(msg){
+                const el = document.getElementById('log');
+                const time = new Date().toLocaleTimeString();
+                if(el.textContent.includes('No activity yet.')) el.textContent = '';
+                el.textContent = `[${time}] ${msg}\n` + el.textContent;
+            }
+
+            // Charts setup
+            const tempCtx = document.getElementById('tempChart').getContext('2d');
+            const humCtx = document.getElementById('humChart').getContext('2d');
+
+            const timeLabels = Array(20).fill('');
+            const tempData = {labels: timeLabels.slice(), datasets:[{label:'Suhu (°C)',data:Array(20).fill(null),borderColor:'#fb923c',backgroundColor:'rgba(251,146,60,0.08)',tension:0.3}]};
+            const humData = {labels: timeLabels.slice(), datasets:[{label:'Kelembapan (%)',data:Array(20).fill(null),borderColor:'#60a5fa',backgroundColor:'rgba(96,165,250,0.06)',tension:0.3}]};
+
+            const tempChart = new Chart(tempCtx, {type:'line',data:tempData,options:{scales:{y:{beginAtZero:false}}}});
+            const humChart = new Chart(humCtx, {type:'line',data:humData,options:{scales:{y:{beginAtZero:true}}}});
+
+            // Update UI with fetched data
+            function updateUI(obj){
+                if(!obj) return;
+                document.getElementById('temp-value').textContent = (obj.temperature!==undefined? obj.temperature.toFixed(1) : '--') + ' °C';
+                document.getElementById('hum-value').textContent = (obj.humidity!==undefined? obj.humidity.toFixed(0) : '--') + ' %';
+                document.getElementById('last-update').textContent = new Date().toLocaleString();
+
+                // LED
+                updateLED(obj.led);
+
+                // push to charts
+                pushPoint(tempChart, obj.temperature);
+                pushPoint(humChart, obj.humidity);
+            }
+
+            function updateLED(ledState) {
+                const ledDot = document.getElementById('led-dot');
+                const ledText = document.getElementById('led-text');
+                if(ledState===true){ledDot.classList.add('led-on'); ledText.textContent='ON';}
+                else if(ledState===false){ledDot.classList.remove('led-on'); ledText.textContent='OFF';}
+                else {ledText.textContent='Unknown';}
+            }
+
+            function pushPoint(chart, value){
+                const data = chart.data.datasets[0].data;
+                data.push(value==null? null : Number(value));
+                if(data.length>20) data.shift();
+                // labels
+                const labels = chart.data.labels;
+                labels.push(new Date().toLocaleTimeString());
+                if(labels.length>20) labels.shift();
+                chart.update('none');
+            }
+
+            // Buttons
+            document.getElementById('btn-on').addEventListener('click', async ()=>{
+                try{
+                    const r = await fetch('/api/led/on',{method:'POST'});
+                    const j = await r.json();
+                    appendLog('💡 Perintah LED ON dikirim via MQTT');
+                }catch(e){appendLog('❌ Gagal menyalakan LED: '+e.message)}
+            });
+
+            document.getElementById('btn-off').addEventListener('click', async ()=>{
+                try{
+                    const r = await fetch('/api/led/off',{method:'POST'});
+                    const j = await r.json();
+                    appendLog('💡 Perintah LED OFF dikirim via MQTT');
+                }catch(e){appendLog('❌ Gagal mematikan LED: '+e.message)}
+            });
+
+            // Initial log
+            appendLog('🚀 Dashboard siap. Menunggu data dari MQTT...');
+        </script>
+    </body>
+</html>
